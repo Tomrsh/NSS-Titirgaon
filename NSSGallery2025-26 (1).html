@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Style Photo Gallery</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white;
+            padding: 20px 0;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            text-align: center;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .app-controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: #4a6cf7;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #3a5ce5;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .folders-container, .media-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #4a6cf7;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+
+        .folders-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .folder-card {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .folder-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            border-color: #4a6cf7;
+        }
+
+        .folder-card.active {
+            border-color: #4a6cf7;
+            background-color: #e8eeff;
+        }
+
+        .folder-icon {
+            font-size: 40px;
+            color: #4a6cf7;
+            margin-bottom: 10px;
+        }
+
+        .folder-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .folder-count {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        /* Mobile Gallery Style */
+        .gallery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .gallery-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .selection-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .selection-info {
+            font-size: 14px;
+            color: #4a6cf7;
+            font-weight: 600;
+        }
+
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 5px;
+        }
+
+        .media-item {
+            position: relative;
+            border-radius: 5px;
+            overflow: hidden;
+            aspect-ratio: 1;
+            cursor: pointer;
+        }
+
+        .media-item.selected {
+            border: 3px solid #4a6cf7;
+        }
+
+        .media-item img, .media-item video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .media-checkbox {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .media-item:hover .media-checkbox,
+        .media-item.selected .media-checkbox {
+            opacity: 1;
+        }
+
+        .media-checkbox.checked {
+            background-color: #4a6cf7;
+            color: white;
+        }
+
+        .video-indicator {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            position: relative;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+        }
+
+        .modal-content img, .modal-content video {
+            width: 100%;
+            height: auto;
+            max-height: 80vh;
+            object-fit: contain;
+            border-radius: 10px;
+        }
+
+        .modal-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .modal-nav:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .modal-prev {
+            left: 20px;
+        }
+
+        .modal-next {
+            right: 20px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .modal-info {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            padding: 10px;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+            border-radius: 0 0 10px 10px;
+        }
+
+        .create-folder-modal, .upload-media-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .create-folder-modal .modal-content, .upload-media-modal .modal-content {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .create-folder-modal h2, .upload-media-modal h2 {
+            margin-bottom: 20px;
+            color: #4a6cf7;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .upload-progress {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress {
+            height: 100%;
+            background-color: #4a6cf7;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .file-progress {
+            margin: 10px 0;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .file-progress .progress {
+            height: 6px;
+            margin-top: 5px;
+        }
+
+        .file-size-warning {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state i {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #dee2e6;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .app-controls {
+                flex-direction: column;
+            }
+            
+            .folders-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+            
+            .media-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+            
+            .modal-nav {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+            
+            .modal-prev {
+                left: 10px;
+            }
+            
+            .modal-next {
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-images"></i> Mobile Style Gallery</h1>
+            <p>Organize your photos and videos in a mobile-like interface</p>
+        </header>
+
+        <div class="app-controls">
+            <button class="btn btn-primary" id="createFolderBtn">
+                <i class="fas fa-folder-plus"></i> Create New Folder
+            </button>
+            <button class="btn btn-success" id="uploadMediaBtn">
+                <i class="fas fa-cloud-upload-alt"></i> Upload Photos/Videos
+            </button>
+        </div>
+
+        <div class="folders-container">
+            <h2 class="section-title"><i class="fas fa-folder"></i> Your Folders</h2>
+            <div class="folders-grid" id="foldersGrid">
+                <!-- Folders will be dynamically added here -->
+            </div>
+        </div>
+
+        <div class="media-container">
+            <div class="gallery-header">
+                <div class="gallery-title" id="galleryTitle">Select a folder to view media</div>
+                <div class="selection-controls" id="selectionControls" style="display: none;">
+                    <span class="selection-info" id="selectionInfo">0 selected</span>
+                    <button class="btn btn-primary" id="downloadSelectedBtn">
+                        <i class="fas fa-download"></i> Download
+                    </button>
+                    <button class="btn" id="clearSelectionBtn">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="media-grid" id="mediaGrid">
+                <!-- Media items will be dynamically added here -->
+            </div>
+        </div>
+
+        <!-- Create Folder Modal -->
+        <div class="create-folder-modal" id="createFolderModal">
+            <div class="modal-content">
+                <h2>Create New Folder</h2>
+                <div class="form-group">
+                    <label for="folderName">Folder Name</label>
+                    <input type="text" id="folderName" class="form-control" placeholder="Enter folder name">
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-danger" id="cancelFolderBtn">Cancel</button>
+                    <button class="btn btn-success" id="saveFolderBtn">Create Folder</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Media Modal -->
+        <div class="upload-media-modal" id="uploadMediaModal">
+            <div class="modal-content">
+                <h2>Upload Photos & Videos</h2>
+                <div class="form-group">
+                    <label for="mediaFiles">Select Files (Max 5MB per file)</label>
+                    <input type="file" id="mediaFiles" class="form-control" multiple accept="image/*, video/*">
+                    <div class="file-size-warning" id="fileSizeWarning">
+                        <i class="fas fa-exclamation-triangle"></i> File size should be less than 5MB
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="folderSelect">Select Folder</label>
+                    <select id="folderSelect" class="form-control">
+                        <!-- Folders will be dynamically added here -->
+                    </select>
+                </div>
+                <div class="upload-progress" id="uploadProgress">
+                    <div class="progress-bar">
+                        <div class="progress" id="progressBar"></div>
+                    </div>
+                    <div id="progressText">Processing: 0%</div>
+                    <div id="fileProgressContainer"></div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-danger" id="cancelUploadBtn">Cancel</button>
+                    <button class="btn btn-success" id="startUploadBtn">Upload Files</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Full Screen Viewer Modal -->
+        <div class="modal" id="fullscreenModal">
+            <div class="modal-content">
+                <button class="modal-close" id="modalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+                <button class="modal-nav modal-prev" id="modalPrev">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button class="modal-nav modal-next" id="modalNext">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                <div id="modalMedia">
+                    <!-- Media will be displayed here -->
+                </div>
+                <div class="modal-info" id="modalInfo">
+                    <!-- Media info will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCXjoeeJs9m7793gOuYW2zXewn5hEdFzhc",
+            authDomain: "t2chats.firebaseapp.com",
+            databaseURL: "https://t2chats-default-rtdb.firebaseio.com",
+            projectId: "t2chats",
+            storageBucket: "t2chats.firebasestorage.app",
+            messagingSenderId: "18096224505",
+            appId: "1:18096224505:web:b34781a2a0b47aed408a28",
+            measurementId: "G-ZVK7MLQPQV"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // DOM Elements
+        const createFolderBtn = document.getElementById('createFolderBtn');
+        const uploadMediaBtn = document.getElementById('uploadMediaBtn');
+        const foldersGrid = document.getElementById('foldersGrid');
+        const mediaGrid = document.getElementById('mediaGrid');
+        const createFolderModal = document.getElementById('createFolderModal');
+        const uploadMediaModal = document.getElementById('uploadMediaModal');
+        const cancelFolderBtn = document.getElementById('cancelFolderBtn');
+        const saveFolderBtn = document.getElementById('saveFolderBtn');
+        const cancelUploadBtn = document.getElementById('cancelUploadBtn');
+        const startUploadBtn = document.getElementById('startUploadBtn');
+        const folderNameInput = document.getElementById('folderName');
+        const mediaFilesInput = document.getElementById('mediaFiles');
+        const folderSelect = document.getElementById('folderSelect');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const fileProgressContainer = document.getElementById('fileProgressContainer');
+        const fileSizeWarning = document.getElementById('fileSizeWarning');
+        const fullscreenModal = document.getElementById('fullscreenModal');
+        const modalClose = document.getElementById('modalClose');
+        const modalPrev = document.getElementById('modalPrev');
+        const modalNext = document.getElementById('modalNext');
+        const modalMedia = document.getElementById('modalMedia');
+        const modalInfo = document.getElementById('modalInfo');
+        const galleryTitle = document.getElementById('galleryTitle');
+        const selectionControls = document.getElementById('selectionControls');
+        const selectionInfo = document.getElementById('selectionInfo');
+        const downloadSelectedBtn = document.getElementById('downloadSelectedBtn');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+        // App State
+        let currentFolderId = null;
+        let folders = [];
+        let media = [];
+        let isUploading = false;
+        let selectedMedia = new Set();
+        let currentMediaIndex = 0;
+        let currentFolderMedia = [];
+
+        // Event Listeners
+        createFolderBtn.addEventListener('click', () => {
+            createFolderModal.style.display = 'flex';
+        });
+
+        cancelFolderBtn.addEventListener('click', () => {
+            createFolderModal.style.display = 'none';
+            folderNameInput.value = '';
+        });
+
+        saveFolderBtn.addEventListener('click', createFolder);
+
+        uploadMediaBtn.addEventListener('click', () => {
+            uploadMediaModal.style.display = 'flex';
+            populateFolderSelect();
+        });
+
+        mediaFilesInput.addEventListener('change', function() {
+            const files = this.files;
+            let hasLargeFile = false;
+            
+            for (let file of files) {
+                if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                    hasLargeFile = true;
+                    break;
+                }
+            }
+            
+            fileSizeWarning.style.display = hasLargeFile ? 'block' : 'none';
+            startUploadBtn.disabled = hasLargeFile;
+        });
+
+        cancelUploadBtn.addEventListener('click', () => {
+            isUploading = false;
+            uploadMediaModal.style.display = 'none';
+            mediaFilesInput.value = '';
+            uploadProgress.style.display = 'none';
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Processing: 0%';
+            fileProgressContainer.innerHTML = '';
+            fileSizeWarning.style.display = 'none';
+            startUploadBtn.disabled = false;
+        });
+
+        startUploadBtn.addEventListener('click', uploadMedia);
+
+        modalClose.addEventListener('click', () => {
+            fullscreenModal.style.display = 'none';
+        });
+
+        modalPrev.addEventListener('click', showPrevMedia);
+        modalNext.addEventListener('click', showNextMedia);
+
+        downloadSelectedBtn.addEventListener('click', downloadSelectedMedia);
+        clearSelectionBtn.addEventListener('click', clearSelection);
+
+        // Firebase Functions
+        function createFolder() {
+            const folderName = folderNameInput.value.trim();
+            if (!folderName) {
+                alert('Please enter a folder name');
+                return;
+            }
+
+            const folderId = Date.now().toString();
+            const folderData = {
+                id: folderId,
+                name: folderName,
+                createdAt: new Date().toISOString()
+            };
+
+            database.ref('folders/' + folderId).set(folderData)
+                .then(() => {
+                    createFolderModal.style.display = 'none';
+                    folderNameInput.value = '';
+                    loadFolders();
+                })
+                .catch(error => {
+                    console.error('Error creating folder:', error);
+                    alert('Error creating folder. Please try again.');
+                });
+        }
+
+        function loadFolders() {
+            database.ref('folders').on('value', (snapshot) => {
+                folders = [];
+                foldersGrid.innerHTML = '';
+                
+                if (snapshot.exists()) {
+                    const foldersData = snapshot.val();
+                    Object.keys(foldersData).forEach(key => {
+                        folders.push({
+                            id: key,
+                            ...foldersData[key]
+                        });
+                    });
+
+                    folders.forEach(folder => {
+                        const folderCard = document.createElement('div');
+                        folderCard.className = 'folder-card';
+                        folderCard.dataset.id = folder.id;
+                        
+                        // Count media in this folder
+                        const mediaCount = media.filter(item => item.folderId === folder.id).length;
+                        
+                        folderCard.innerHTML = `
+                            <div class="folder-icon">
+                                <i class="fas fa-folder"></i>
+                            </div>
+                            <div class="folder-name">${folder.name}</div>
+                            <div class="folder-count">${mediaCount} files</div>
+                        `;
+                        
+                        folderCard.addEventListener('click', () => {
+                            setActiveFolder(folder.id);
+                        });
+                        
+                        foldersGrid.appendChild(folderCard);
+                    });
+                } else {
+                    foldersGrid.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-folder-open"></i>
+                            <h3>No Folders Yet</h3>
+                            <p>Create your first folder to get started</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function setActiveFolder(folderId) {
+            currentFolderId = folderId;
+            clearSelection();
+            
+            // Update UI
+            document.querySelectorAll('.folder-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            document.querySelector(`.folder-card[data-id="${folderId}"]`).classList.add('active');
+            
+            // Update gallery title
+            const folder = folders.find(f => f.id === folderId);
+            galleryTitle.textContent = folder ? folder.name : 'Gallery';
+            
+            loadMedia(folderId);
+        }
+
+        function populateFolderSelect() {
+            folderSelect.innerHTML = '';
+            
+            if (folders.length === 0) {
+                folderSelect.innerHTML = '<option value="">No folders available</option>';
+                return;
+            }
+            
+            folders.forEach(folder => {
+                const option = document.createElement('option');
+                option.value = folder.id;
+                option.textContent = folder.name;
+                folderSelect.appendChild(option);
+            });
+            
+            // Select current folder if one is selected
+            if (currentFolderId) {
+                folderSelect.value = currentFolderId;
+            }
+        }
+
+        function uploadMedia() {
+            if (isUploading) return;
+            
+            const files = mediaFilesInput.files;
+            const folderId = folderSelect.value;
+            
+            if (!files || files.length === 0) {
+                alert('Please select at least one file');
+                return;
+            }
+            
+            if (!folderId) {
+                alert('Please select a folder');
+                return;
+            }
+
+            // Check file sizes
+            for (let file of files) {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`File ${file.name} is too large. Maximum size is 5MB.`);
+                    return;
+                }
+            }
+            
+            isUploading = true;
+            uploadProgress.style.display = 'block';
+            startUploadBtn.disabled = true;
+            let completedUploads = 0;
+            const totalFiles = files.length;
+            
+            // Clear previous progress
+            fileProgressContainer.innerHTML = '';
+            
+            // Create progress elements for each file
+            const fileProgressElements = {};
+            Array.from(files).forEach(file => {
+                const fileId = Date.now().toString() + Math.random().toString(36).substring(2);
+                const progressElement = document.createElement('div');
+                progressElement.className = 'file-progress';
+                progressElement.innerHTML = `
+                    <div>${file.name} (${formatFileSize(file.size)})</div>
+                    <div class="progress-bar">
+                        <div class="progress" id="progress-${fileId}"></div>
+                    </div>
+                    <div id="progress-text-${fileId}">Converting...</div>
+                `;
+                fileProgressContainer.appendChild(progressElement);
+                fileProgressElements[file.name] = {
+                    element: progressElement,
+                    progressBar: document.getElementById(`progress-${fileId}`),
+                    progressText: document.getElementById(`progress-text-${fileId}`)
+                };
+            });
+
+            // Process files sequentially
+            processFilesSequentially(Array.from(files), folderId, fileProgressElements, completedUploads, totalFiles);
+        }
+
+        function processFilesSequentially(files, folderId, progressElements, completed, total) {
+            if (files.length === 0 || !isUploading) {
+                // All files processed or upload cancelled
+                isUploading = false;
+                startUploadBtn.disabled = false;
+                
+                if (completed === total) {
+                    setTimeout(() => {
+                        uploadMediaModal.style.display = 'none';
+                        mediaFilesInput.value = '';
+                        uploadProgress.style.display = 'none';
+                        progressBar.style.width = '0%';
+                        progressText.textContent = 'Processing: 0%';
+                        fileProgressContainer.innerHTML = '';
+                        fileSizeWarning.style.display = 'none';
+                        
+                        // Refresh media if viewing the same folder
+                        if (currentFolderId === folderId) {
+                            loadMedia(folderId);
+                        }
+                        
+                        // Refresh folders to update counts
+                        loadFolders();
+                        
+                        alert('All files uploaded successfully!');
+                    }, 1000);
+                }
+                return;
+            }
+
+            const file = files[0];
+            const remainingFiles = files.slice(1);
+            const fileId = Date.now().toString() + Math.random().toString(36).substring(2);
+
+            // Update progress
+            progressElements[file.name].progressText.textContent = 'Reading file...';
+            progressElements[file.name].progressBar.style.width = '25%';
+
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                if (!isUploading) return;
+
+                progressElements[file.name].progressText.textContent = 'Uploading to database...';
+                progressElements[file.name].progressBar.style.width = '75%';
+
+                const mediaData = {
+                    id: fileId,
+                    name: file.name,
+                    type: file.type.startsWith('image/') ? 'image' : 'video',
+                    data: e.target.result, // Base64 data
+                    folderId: folderId,
+                    uploadedAt: new Date().toISOString(),
+                    size: file.size
+                };
+
+                // Save to Realtime Database
+                database.ref('media/' + fileId).set(mediaData)
+                    .then(() => {
+                        progressElements[file.name].progressText.textContent = 'Completed!';
+                        progressElements[file.name].progressBar.style.width = '100%';
+                        
+                        completed++;
+                        
+                        // Update overall progress
+                        const overallProgress = (completed / total) * 100;
+                        progressBar.style.width = overallProgress + '%';
+                        progressText.textContent = `Processing: ${Math.round(overallProgress)}%`;
+                        
+                        // Process next file
+                        setTimeout(() => {
+                            processFilesSequentially(remainingFiles, folderId, progressElements, completed, total);
+                        }, 100);
+                    })
+                    .catch(error => {
+                        console.error('Error saving media data:', error);
+                        progressElements[file.name].progressText.textContent = 'Error!';
+                        progressElements[file.name].progressBar.style.backgroundColor = '#dc3545';
+                        alert(`Error uploading ${file.name}. Please try again.`);
+                        isUploading = false;
+                        startUploadBtn.disabled = false;
+                    });
+            };
+
+            reader.onerror = function() {
+                progressElements[file.name].progressText.textContent = 'Error reading file!';
+                progressElements[file.name].progressBar.style.backgroundColor = '#dc3545';
+                alert(`Error reading ${file.name}. Please try again.`);
+                isUploading = false;
+                startUploadBtn.disabled = false;
+            };
+
+            // Read file as Data URL (base64)
+            reader.readAsDataURL(file);
+        }
+
+        function loadMedia(folderId) {
+            database.ref('media').orderByChild('folderId').equalTo(folderId).on('value', (snapshot) => {
+                media = [];
+                mediaGrid.innerHTML = '';
+                currentFolderMedia = [];
+                
+                if (snapshot.exists()) {
+                    const mediaData = snapshot.val();
+                    Object.keys(mediaData).forEach(key => {
+                        const item = {
+                            id: key,
+                            ...mediaData[key]
+                        };
+                        media.push(item);
+                        currentFolderMedia.push(item);
+                    });
+
+                    media.forEach(item => {
+                        const mediaItem = document.createElement('div');
+                        mediaItem.className = 'media-item';
+                        mediaItem.dataset.id = item.id;
+                        
+                        if (item.type === 'image') {
+                            mediaItem.innerHTML = `
+                                <img src="${item.data}" alt="${item.name}" loading="lazy">
+                                <div class="media-checkbox">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                            `;
+                        } else {
+                            mediaItem.innerHTML = `
+                                <video>
+                                    <source src="${item.data}" type="${item.type}">
+                                </video>
+                                <div class="video-indicator">
+                                    <i class="fas fa-play"></i>
+                                </div>
+                                <div class="media-checkbox">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                            `;
+                        }
+                        
+                        mediaGrid.appendChild(mediaItem);
+                        
+                        // Add event listeners
+                        mediaItem.addEventListener('click', (e) => {
+                            if (selectedMedia.size > 0) {
+                                // Selection mode - toggle selection
+                                toggleMediaSelection(item.id, mediaItem);
+                            } else {
+                                // Normal mode - open fullscreen
+                                openFullscreenView(item);
+                            }
+                        });
+                        
+                        // Long press for selection
+                        let pressTimer;
+                        mediaItem.addEventListener('mousedown', () => {
+                            pressTimer = setTimeout(() => {
+                                toggleMediaSelection(item.id, mediaItem);
+                            }, 500);
+                        });
+                        
+                        mediaItem.addEventListener('mouseup', () => {
+                            clearTimeout(pressTimer);
+                        });
+                        
+                        mediaItem.addEventListener('touchstart', () => {
+                            pressTimer = setTimeout(() => {
+                                toggleMediaSelection(item.id, mediaItem);
+                            }, 500);
+                        });
+                        
+                        mediaItem.addEventListener('touchend', () => {
+                            clearTimeout(pressTimer);
+                        });
+                    });
+                } else {
+                    mediaGrid.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-photo-video"></i>
+                            <h3>No Media Files</h3>
+                            <p>Upload photos or videos to this folder</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function toggleMediaSelection(mediaId, mediaElement) {
+            if (selectedMedia.has(mediaId)) {
+                selectedMedia.delete(mediaId);
+                mediaElement.classList.remove('selected');
+                mediaElement.querySelector('.media-checkbox').classList.remove('checked');
+            } else {
+                selectedMedia.add(mediaId);
+                mediaElement.classList.add('selected');
+                mediaElement.querySelector('.media-checkbox').classList.add('checked');
+            }
+            
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            if (selectedMedia.size > 0) {
+                selectionControls.style.display = 'flex';
+                selectionInfo.textContent = `${selectedMedia.size} selected`;
+            } else {
+                selectionControls.style.display = 'none';
+            }
+        }
+
+        function clearSelection() {
+            selectedMedia.clear();
+            document.querySelectorAll('.media-item').forEach(item => {
+                item.classList.remove('selected');
+                item.querySelector('.media-checkbox').classList.remove('checked');
+            });
+            updateSelectionUI();
+        }
+
+        function downloadSelectedMedia() {
+            if (selectedMedia.size === 0) {
+                alert('Please select at least one file to download');
+                return;
+            }
+            
+            selectedMedia.forEach(mediaId => {
+                const mediaItem = media.find(item => item.id === mediaId);
+                if (mediaItem) {
+                    downloadMedia(mediaItem);
+                }
+            });
+            
+            // Small delay to prevent browser blocking multiple downloads
+            setTimeout(() => {
+                clearSelection();
+            }, 100);
+        }
+
+        function downloadMedia(mediaItem) {
+            // Create a temporary anchor element to trigger download
+            const a = document.createElement('a');
+            a.href = mediaItem.data;
+            a.download = mediaItem.name;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function openFullscreenView(mediaItem) {
+            currentMediaIndex = currentFolderMedia.findIndex(item => item.id === mediaItem.id);
+            showMediaInFullscreen();
+            fullscreenModal.style.display = 'flex';
+        }
+
+        function showMediaInFullscreen() {
+            if (currentMediaIndex < 0 || currentMediaIndex >= currentFolderMedia.length) return;
+            
+            const mediaItem = currentFolderMedia[currentMediaIndex];
+            modalMedia.innerHTML = '';
+            
+            if (mediaItem.type === 'image') {
+                modalMedia.innerHTML = `<img src="${mediaItem.data}" alt="${mediaItem.name}">`;
+            } else {
+                modalMedia.innerHTML = `
+                    <video controls autoplay>
+                        <source src="${mediaItem.data}" type="${mediaItem.type}">
+                        Your browser does not support the video tag.
+                    </video>
+                `;
+            }
+            
+            modalInfo.innerHTML = `
+                <div>${mediaItem.name}</div>
+                <div>${formatFileSize(mediaItem.size)}</div>
+            `;
+            
+            // Update navigation buttons
+            modalPrev.style.display = currentMediaIndex > 0 ? 'flex' : 'none';
+            modalNext.style.display = currentMediaIndex < currentFolderMedia.length - 1 ? 'flex' : 'none';
+        }
+
+        function showPrevMedia() {
+            if (currentMediaIndex > 0) {
+                currentMediaIndex--;
+                showMediaInFullscreen();
+            }
+        }
+
+        function showNextMedia() {
+            if (currentMediaIndex < currentFolderMedia.length - 1) {
+                currentMediaIndex++;
+                showMediaInFullscreen();
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Initialize the app
+        function initApp() {
+            loadFolders();
+            
+            // Show empty state for media initially
+            mediaGrid.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-photo-video"></i>
+                    <h3>No Media Files</h3>
+                    <p>Select a folder to view its contents</p>
+                </div>
+            `;
+        }
+
+        // Start the app when page loads
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
